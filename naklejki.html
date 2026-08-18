@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Personalizowane Naklejki — FormFabryka</title>
+<style>
+
+  :root{
+    --bg:#050506;
+    --bg-card:#0d0e11;
+    --border-idle:rgba(255,255,255,0.08);
+    --accent:#2f8fe0;
+    --accent-soft:#5aa9e6;
+    --text:#f3f4f6;
+    --text-dim:rgba(255,255,255,0.55);
+  }
+
+  *{ box-sizing:border-box; margin:0; padding:0; }
+  html{ scroll-behavior:smooth; }
+
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    min-height:100vh;
+    overflow-x:hidden;
+    position:relative;
+  }
+
+  .bg-mesh{
+    position:fixed; inset:0; z-index:0; pointer-events:none;
+    background:
+      radial-gradient(circle at 18% 22%, rgba(47,143,224,0.16), transparent 42%),
+      radial-gradient(circle at 82% 18%, rgba(47,143,224,0.10), transparent 40%),
+      radial-gradient(circle at 75% 80%, rgba(47,143,224,0.14), transparent 45%),
+      radial-gradient(circle at 25% 85%, rgba(47,143,224,0.08), transparent 40%);
+    animation:meshDrift 16s ease-in-out infinite alternate;
+  }
+
+  @keyframes meshDrift{
+    0%{ transform:scale(1) translate(0,0); opacity:0.75; }
+    50%{ transform:scale(1.08) translate(-1%, 1%); opacity:1; }
+    100%{ transform:scale(1.03) translate(1%, -1%); opacity:0.9; }
+  }
+
+  @media (prefers-reduced-motion: reduce){ .bg-mesh{ animation:none; } }
+
+  header{
+    position:sticky;
+    top:0;
+    z-index:50;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:16px clamp(20px, 5vw, 56px);
+    background:rgba(5,5,6,0.72);
+    backdrop-filter:blur(14px);
+    -webkit-backdrop-filter:blur(14px);
+    border-bottom:1px solid rgba(255,255,255,0.06);
+  }
+
+  .logo-wrap{ position:relative; }
+
+  .logo-trigger{
+    display:flex; align-items:center; gap:10px;
+    background:none; border:none; padding:0; cursor:pointer;
+    font-family:inherit; color:var(--text);
+  }
+
+  .logo-trigger img{
+    height:34px; width:34px; object-fit:contain; border-radius:6px; display:block;
+  }
+
+  .logo-trigger span{
+    font-size:16px; font-weight:600; letter-spacing:0.2px; color:var(--text);
+  }
+
+  .logo-trigger .chevron{
+    width:14px; height:14px; color:var(--text-dim);
+    transition:transform 0.25s ease;
+  }
+
+  .logo-wrap.is-open .chevron{ transform:rotate(180deg); }
+
+  .logo-dropdown{
+    position:absolute; top:calc(100% + 14px); left:0;
+    min-width:250px;
+    background:#0d0e11; border:1px solid rgba(255,255,255,0.1); border-radius:12px;
+    padding:8px; box-shadow:0 24px 48px rgba(0,0,0,0.55);
+    opacity:0; pointer-events:none; transform:translateY(-8px);
+    transition:opacity 0.2s ease, transform 0.2s ease;
+  }
+
+  .logo-wrap.is-open .logo-dropdown{ opacity:1; pointer-events:auto; transform:translateY(0); }
+
+  .logo-dropdown a{
+    display:block; padding:10px 12px; border-radius:8px;
+    font-size:13.5px; color:var(--text-dim); text-decoration:none;
+    transition:background 0.2s ease, color 0.2s ease;
+  }
+
+  .logo-dropdown a:hover{ background:rgba(47,143,224,0.12); color:var(--text); }
+  .logo-dropdown a.is-current{ color:var(--accent-soft); font-weight:600; }
+  .logo-dropdown .dropdown-divider{ height:1px; background:rgba(255,255,255,0.08); margin:6px 4px; }
+
+  nav{ display:flex; gap:28px; }
+  nav a{ color:var(--text-dim); text-decoration:none; font-size:14px; font-weight:500; letter-spacing:0.2px; transition:color 0.25s ease; }
+  nav a:hover{ color:var(--text); }
+
+  /* ---------- hero: tekst z lewej, obraz z prawej ---------- */
+  .hero{
+    position:relative;
+    z-index:2;
+    overflow:hidden;
+    max-width:1280px;
+    margin:0 auto;
+    padding:56px clamp(20px, 5vw, 56px) 80px;
+    min-height:520px;
+    display:flex;
+    align-items:center;
+  }
+
+
+
+  .hero__bg{
+    position:absolute; inset:0; z-index:0;
+    pointer-events:none;
+    opacity:0; transform:translateX(6%) scale(1.03);
+    animation:bgSlideIn 1.2s cubic-bezier(.16,.8,.3,1) 0.1s forwards;
+  }
+
+  .hero__bg img{ width:100%; height:100%; object-fit:contain; object-position:right center; display:block; }
+
+  .hero__bg::after{
+    content:''; position:absolute; inset:0;
+    background:radial-gradient(ellipse 640px 520px at 0% 50%, rgba(5,5,6,0.95) 0%, rgba(5,5,6,0.55) 42%, transparent 70%);
+  }
+
+  @keyframes bgSlideIn{ to{ opacity:1; transform:translateX(0) scale(1); } }
+
+  @media (max-width:860px){
+    .hero__bg img{ object-position:center 20%; opacity:0.5; }
+    .hero__bg::after{
+      background:linear-gradient(to bottom, rgba(5,5,6,0.5) 0%, rgba(5,5,6,0.75) 55%, rgba(5,5,6,0.95) 100%);
+    }
+  }
+
+  .hero__text{
+    position:relative; z-index:1; max-width:560px;
+    opacity:0; transform:translateX(-36px);
+    animation:slideInLeft 0.9s cubic-bezier(.16,.8,.3,1) 0.15s forwards;
+  }
+
+  @keyframes slideInLeft{ to{ opacity:1; transform:translateX(0); } }
+
+  @media (prefers-reduced-motion: reduce){
+    .hero__text, .hero__bg{ animation:none; opacity:1; transform:none; }
+  }
+
+  .eyebrow{
+    display:inline-block; font-size:12px; letter-spacing:1.6px; font-weight:600;
+    color:var(--accent-soft); margin-bottom:18px;
+  }
+
+  .hero__text h1{ font-size:clamp(30px, 4vw, 44px); font-weight:600; line-height:1.18; margin-bottom:20px; }
+  .hero__text p{ font-size:15.5px; line-height:1.7; color:var(--text-dim); max-width:46ch; margin-bottom:20px; }
+
+  .hero__output{
+    display:flex; align-items:center; gap:10px; font-size:13px; color:var(--text);
+    background:rgba(47,143,224,0.1); border:1px solid rgba(90,169,230,0.25);
+    border-radius:8px; padding:10px 14px; margin-bottom:28px; max-width:fit-content;
+  }
+  .hero__output svg{ width:16px; height:16px; color:var(--accent-soft); flex-shrink:0; }
+
+  .trust-row{ display:flex; gap:12px; justify-content:center; flex-wrap:wrap; max-width:680px; margin:0 auto 36px; }
+  .trust-badge{
+    display:flex; align-items:center; gap:8px; font-size:12.5px; color:var(--text);
+    background:rgba(47,143,224,0.1); border:1px solid rgba(90,169,230,0.25);
+    border-radius:8px; padding:9px 14px;
+  }
+  .trust-badge svg{ width:15px; height:15px; color:var(--accent-soft); flex-shrink:0; }
+
+  .hero__cta{ display:flex; gap:12px; flex-wrap:wrap; }
+
+  .btn-primary{
+    background:var(--accent); color:#04101c; border:none; font-size:14px; font-weight:600;
+    padding:12px 24px; border-radius:8px; text-decoration:none; display:inline-flex; align-items:center;
+    transition:filter 0.25s ease, transform 0.2s ease;
+  }
+  .btn-primary:hover{ filter:brightness(1.1); transform:translateY(-1px); }
+
+  .btn-ghost{
+    background:transparent; color:var(--text); border:1px solid rgba(255,255,255,0.2);
+    font-size:14px; font-weight:500; padding:12px 22px; border-radius:8px; text-decoration:none;
+    display:inline-flex; align-items:center; transition:border-color 0.25s ease, color 0.25s ease;
+  }
+  .btn-ghost:hover{ border-color:rgba(90,169,230,0.5); color:var(--accent-soft); }
+
+  /* ---------- karty specyfikacji ---------- */
+  .section{ position:relative; z-index:2; padding:20px clamp(20px, 5vw, 56px) 72px; max-width:1180px; margin:0 auto; }
+  .section .heading{ text-align:center; max-width:560px; margin:0 auto 36px; }
+  .section .heading h2{ font-size:24px; font-weight:600; margin-bottom:10px; }
+  .section .heading p{ font-size:14px; color:var(--text-dim); line-height:1.6; }
+
+  .spec-grid{ display:grid; grid-template-columns:repeat(4, 1fr); gap:16px; }
+  @media (max-width:860px){ .spec-grid{ grid-template-columns:repeat(2, 1fr); } }
+  @media (max-width:520px){ .spec-grid{ grid-template-columns:1fr; } }
+
+  .spec-card{
+    background:var(--bg-card); border:1px solid var(--border-idle); border-radius:14px;
+    padding:24px 20px; transition:border-color 0.35s ease, transform 0.35s ease;
+  }
+  .spec-card:hover{ border-color:rgba(90,169,230,0.35); transform:translateY(-3px); }
+  .spec-card .num{ font-size:19px; font-weight:700; color:var(--accent-soft); margin-bottom:10px; }
+  .spec-card h3{ font-size:14px; font-weight:600; margin-bottom:8px; }
+  .spec-card p{ font-size:12.5px; color:var(--text-dim); line-height:1.55; }
+
+  /* ---------- baner cross-sell: dodatki ---------- */
+  .addon-grid{
+    display:grid; grid-template-columns:repeat(2, 1fr); gap:16px;
+    max-width:1180px; margin:0 auto 72px; padding:0 clamp(20px, 5vw, 56px);
+  }
+  @media (max-width:700px){ .addon-grid{ grid-template-columns:1fr; } }
+
+  .addon-card{
+    display:flex; align-items:flex-start; gap:16px;
+    background:var(--bg-card); border:1px solid var(--border-idle); border-radius:16px;
+    padding:24px; transition:border-color 0.35s ease;
+  }
+  .addon-card:hover{ border-color:rgba(90,169,230,0.3); }
+
+  .addon-card__icon{
+    width:40px; height:40px; border-radius:10px; background:rgba(47,143,224,0.15);
+    display:flex; align-items:center; justify-content:center; flex-shrink:0;
+  }
+  .addon-card__icon svg{ width:20px; height:20px; color:var(--accent-soft); }
+
+  .addon-card h3{ font-size:14.5px; font-weight:600; margin-bottom:6px; }
+  .addon-card p{ font-size:12.5px; color:var(--text-dim); line-height:1.55; margin-bottom:12px; }
+  .addon-card a{ font-size:12.5px; font-weight:600; color:var(--accent-soft); text-decoration:none; }
+  .addon-card a:hover{ text-decoration:underline; }
+
+  /* ---------- cennik ---------- */
+  .price-grid{ display:grid; grid-template-columns:repeat(3, 1fr); gap:18px; }
+  @media (max-width:860px){ .price-grid{ grid-template-columns:1fr; } }
+
+  .price-card{
+    background:var(--bg-card); border:1px solid var(--border-idle); border-radius:16px;
+    padding:30px 26px; display:flex; flex-direction:column;
+    transition:border-color 0.35s ease, transform 0.35s ease;
+  }
+  .price-card:hover{ border-color:rgba(90,169,230,0.35); transform:translateY(-3px); }
+  .price-card.is-featured{
+    border-color:rgba(90,169,230,0.45);
+    background:linear-gradient(180deg, rgba(47,143,224,0.08), rgba(13,14,17,1) 60%);
+  }
+  .price-card .tag{ font-size:11px; letter-spacing:1.2px; font-weight:600; color:var(--accent-soft); margin-bottom:14px; }
+  .price-card h3{ font-size:17px; font-weight:600; margin-bottom:6px; }
+  .price-card .price{ font-size:24px; font-weight:700; margin:10px 0 16px; }
+  .price-card .price span{ font-size:13px; font-weight:500; color:var(--text-dim); }
+  .price-card p{ font-size:13px; color:var(--text-dim); line-height:1.6; flex-grow:1; }
+
+  .price-note{ text-align:center; font-size:12.5px; color:var(--text-dim); margin-top:24px; line-height:1.6; }
+
+  /* ---------- kontakt ---------- */
+  .section-kontakt{ position:relative; z-index:2; padding:20px clamp(20px, 5vw, 56px) 80px; }
+  .section-kontakt .heading{ text-align:center; max-width:520px; margin:0 auto 40px; }
+  .section-kontakt .heading h2{ font-size:26px; font-weight:600; margin-bottom:10px; }
+  .section-kontakt .heading p{ font-size:14px; color:var(--text-dim); line-height:1.6; }
+
+  .contact-grid{ display:grid; grid-template-columns:1.3fr 1fr; gap:20px; max-width:960px; margin:0 auto; }
+  @media (max-width:760px){ .contact-grid{ grid-template-columns:1fr; } }
+
+  .contact-card, .whatsapp-card{
+    background:var(--bg-card); border:1px solid var(--border-idle); border-radius:16px;
+    padding:30px; transition:border-color 0.4s ease;
+  }
+  .contact-card:hover, .whatsapp-card:hover{ border-color:rgba(90,169,230,0.3); }
+
+  .field{ margin-bottom:16px; display:flex; flex-direction:column; gap:6px; }
+  .field label{ font-size:12.5px; color:var(--text-dim); }
+  .field input, .field textarea{
+    background:#0a0b0d; border:1px solid rgba(255,255,255,0.12); border-radius:8px;
+    padding:11px 14px; color:var(--text); font-size:14px; font-family:inherit; outline:none;
+    transition:border-color 0.25s ease;
+  }
+  .field input:focus, .field textarea:focus{ border-color:var(--accent); }
+  .field textarea{ resize:vertical; min-height:110px; }
+
+  .hp-field{ position:absolute; left:-9999px; width:1px; height:1px; overflow:hidden; }
+
+  .btn-submit{
+    background:var(--accent); color:#04101c; border:none; font-size:14px; font-weight:600;
+    padding:12px 24px; border-radius:8px; cursor:pointer; transition:filter 0.25s ease, transform 0.2s ease;
+  }
+  .btn-submit:hover:not(:disabled){ filter:brightness(1.1); transform:translateY(-1px); }
+  .btn-submit:disabled{ opacity:0.55; cursor:not-allowed; }
+
+  .form-status{ margin-top:14px; font-size:13px; line-height:1.5; }
+  .form-status.success{ color:#6ee7a0; }
+  .form-status.error{ color:#ff8080; }
+
+  .whatsapp-card{ display:flex; flex-direction:column; justify-content:center; gap:14px; }
+  .whatsapp-card h3{ font-size:16px; font-weight:600; }
+  .whatsapp-card p{ font-size:13px; color:var(--text-dim); line-height:1.6; }
+
+  .btn-whatsapp{
+    display:inline-flex; align-items:center; gap:10px; align-self:flex-start;
+    background:var(--accent); color:#04101c; padding:12px 20px; border-radius:8px;
+    text-decoration:none; font-size:14px; font-weight:600;
+    transition:filter 0.25s ease, transform 0.2s ease;
+  }
+  .btn-whatsapp:hover{ filter:brightness(1.1); transform:translateY(-2px); }
+  .btn-whatsapp svg{ width:18px; height:18px; }
+
+  .btn-tiktok{
+    display:inline-flex; align-items:center; gap:10px; align-self:flex-start;
+    background:transparent; color:var(--text); border:1px solid rgba(255,255,255,0.2);
+    padding:12px 20px; border-radius:8px; text-decoration:none; font-size:14px; font-weight:600;
+    margin-top:10px; transition:border-color 0.25s ease, color 0.25s ease, transform 0.2s ease;
+  }
+  .btn-tiktok:hover{ border-color:rgba(90,169,230,0.5); color:var(--accent-soft); transform:translateY(-2px); }
+  .btn-tiktok svg{ width:18px; height:18px; }
+
+  footer{ position:relative; z-index:2; text-align:center; padding:22px; font-size:12px; color:rgba(255,255,255,0.35); }
+
+</style>
+</head>
+<body>
+
+  <div class="bg-mesh"></div>
+
+  <header>
+    <div class="logo-wrap">
+      <button class="logo-trigger" type="button" aria-haspopup="true" aria-expanded="false">
+        <img src="assets/logo.png" alt="FormFabryka logo">
+        <span>FormFabryka</span>
+        <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+      </button>
+      <div class="logo-dropdown" role="menu">
+        <a href="index.html" role="menuitem">Strona główna</a>
+        <div class="dropdown-divider"></div>
+        <a href="skan-3d.html" role="menuitem">Skanowanie 3D</a>
+        <a href="druk-3d.html" role="menuitem">Druk 3D i Prototypowanie</a>
+        <a href="laser.html" role="menuitem">Grawerowanie i Cięcie Laserowe</a>
+        <a href="naklejki.html" role="menuitem" class="is-current">Personalizowane Naklejki</a>
+      </div>
+    </div>
+    <nav>
+      <a href="#kontakt">Kontakt</a>
+    </nav>
+  </header>
+
+  <section class="hero">
+    <div class="hero__bg">
+      <img src="assets/naklejki-hero.png" alt="Przykładowe naklejki i gadżety z personalizowanym logo">
+    </div>
+    <div class="hero__text">
+      <span class="eyebrow">04 — PERSONALIZOWANE NAKLEJKI</span>
+      <h1>Twój wzór, wycięty z precyzją co do milimetra</h1>
+      <p>Wycinam naklejki, oznaczenia i grafiki dokładnie po konturze Twojego projektu — nie w prostokątnej ramce. Winyl na zewnątrz, naklejki wodne na opakowania, folia flex na tekstylia — dobieram materiał pod Twoje zastosowanie.</p>
+      <div class="hero__output">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="10"/></svg>
+        Masz gotowy plik wektorowy? Wycinam od ręki. Nie masz? Przygotuję go z Twojego zdjęcia lub szkicu
+      </div>
+      <div class="hero__cta">
+        <a class="btn-primary" href="#kontakt">Wyceń swoje naklejki</a>
+        <a class="btn-ghost" href="#cennik">Zobacz cennik</a>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="heading">
+      <h2>Co realnie oferuje mój sprzęt</h2>
+      <p>Parametry, które przekładają się na jakość wycięcia i zakres możliwości.</p>
+    </div>
+    <div class="spec-grid">
+
+      <div class="spec-card">
+        <div class="num">61 cm</div>
+        <h3>Szerokość cięcia</h3>
+        <p>Duże naklejki, banery czy wielosztukowe arkusze w jednym przejściu, bez łączenia segmentów.</p>
+      </div>
+
+      <div class="spec-card">
+        <div class="num">do 5 kgf</div>
+        <h3>Siła cięcia</h3>
+        <p>Poradzi sobie nie tylko z cienką folią, ale i grubszymi materiałami jak karton czy skóra.</p>
+      </div>
+
+      <div class="spec-card">
+        <div class="num">do 3 mm</div>
+        <h3>Grubość materiału</h3>
+        <p>Od delikatnej folii winylowej po grubszy karton i tkaniny — jednym urządzeniem.</p>
+      </div>
+
+      <div class="spec-card">
+        <div class="num">Dowolny kształt</div>
+        <h3>Cięcie konturowe</h3>
+        <p>Wycinam dokładnie po obrysie Twojego wzoru — logo, napis czy nietypowy kształt, bez ograniczeń prostokąta.</p>
+      </div>
+
+    </div>
+  </section>
+
+  <div class="addon-grid">
+
+    <div class="addon-card">
+      <div class="addon-card__icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l9 5v10l-9 5-9-5V7l9-5Z"/><path d="M3.5 7.5L12 12l8.5-4.5M12 12v9"/></svg>
+      </div>
+      <div>
+        <h3>Naklejka na Twój wydruk 3D</h3>
+        <p>Dodaj logo albo oznaczenie do gotowej części prosto z drukarki — spójna marka na każdym elemencie.</p>
+        <a href="druk-3d.html">Zobacz druk 3D →</a>
+      </div>
+    </div>
+
+    <div class="addon-card">
+      <div class="addon-card__icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19l7-7 3 3-7 7-3-3Z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5Z"/><path d="M2 2l7.586 7.586"/><circle cx="11" cy="11" r="2"/></svg>
+      </div>
+      <div>
+        <h3>Nie masz gotowego wzoru?</h3>
+        <p>Podeślij zdjęcie, szkic albo nawet opis pomysłu — przygotuję plik do cięcia od podstaw.</p>
+        <a href="#kontakt">Zapytaj o wycenę →</a>
+      </div>
+    </div>
+
+  </div>
+
+  <section class="section" id="cennik">
+    <div class="heading">
+      <h2>Cennik</h2>
+      <p>Ceny orientacyjne netto za sztukę. Cena spada wraz z ilością — im większy nakład, tym niższy koszt jednostkowy.</p>
+    </div>
+
+    <div class="trust-row">
+      <div class="trust-badge">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+        Realizacja standardowo w 24–48h
+      </div>
+      <div class="trust-badge">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5Z"/></svg>
+        Nie wiesz co wybrać? Doradzę — po prostu napisz
+      </div>
+    </div>
+
+    <div class="price-grid">
+
+      <div class="price-card">
+        <span class="tag">NAKLEJKI JEDNOKOLOROWE</span>
+        <h3>Winyl, wycinane konturowo</h3>
+        <div class="price">od 3 zł<span>/szt</span></div>
+        <p>Pojedynczy kolor, dowolny kształt cięty po obrysie. Dobre na logo, oznaczenia i proste wzory. Minimalna wartość zamówienia 25 zł.</p>
+      </div>
+
+      <div class="price-card is-featured">
+        <span class="tag">NAKLEJKI PEŁNOKOLOROWE</span>
+        <h3>Druk + cięcie / naklejki wodne</h3>
+        <div class="price">od 5 zł<span>/szt</span></div>
+        <p>Pełny kolor, dowolny kształt, na zewnątrz (winyl) lub do środka (naklejki wodne na opakowania).</p>
+      </div>
+
+      <div class="price-card">
+        <span class="tag">WIĘKSZY NAKŁAD</span>
+        <h3>100+ sztuk</h3>
+        <div class="price">wycena indywidualna</div>
+        <p>Przy większych ilościach koszt przygotowania rozkłada się na cały nakład — cena za sztukę wyraźnie spada.</p>
+      </div>
+
+    </div>
+    <p class="price-note">Nie masz gotowego wzoru albo nie wiesz, czy lepszy będzie winyl, czy naklejka wodna? Doradzę przy wyborze — standardowy czas realizacji to 24–48h. Cena zależy od rozmiaru, liczby kolorów i nakładu. Wyślij wzór (albo opisz pomysł) — wycenę dostaniesz tego samego dnia.</p>
+  </section>
+
+  <section class="section-kontakt" id="kontakt">
+    <div class="heading">
+      <h2>Skontaktuj się</h2>
+      <p>Wypełnij formularz albo napisz od razu na WhatsApp — odpowiadam najszybciej jak to możliwe.</p>
+    </div>
+
+    <div class="contact-grid">
+
+      <div class="contact-card">
+        <form id="contactForm" action="https://api.web3forms.com/submit" method="POST" enctype="multipart/form-data">
+
+          <input type="hidden" name="access_key" value="c7c666aa-6ef7-4205-99af-e8313982ca59">
+          <input type="hidden" name="subject" value="Nowa wiadomość ze strony FormFabryka — Naklejki">
+          <input type="hidden" name="from_name" value="Formularz FormFabryka">
+
+          <div class="hp-field">
+            <label for="botcheck">Nie wypełniaj tego pola</label>
+            <input type="text" id="botcheck" name="botcheck" tabindex="-1" autocomplete="off">
+          </div>
+
+          <div class="field">
+            <label for="name">Imię i nazwisko</label>
+            <input type="text" id="name" name="name" required>
+          </div>
+
+          <div class="field">
+            <label for="email">Twój e-mail</label>
+            <input type="email" id="email" name="email" required>
+          </div>
+
+          <div class="field">
+            <label for="message">Wiadomość</label>
+            <textarea id="message" name="message" placeholder="Opisz swój pomysł — rozmiar, ilość, materiał (winyl / naklejka wodna), czy masz gotowy plik."></textarea>
+          </div>
+
+          <div class="field">
+            <label for="attachment">Wzór lub zdjęcie (opcjonalnie, max 5 MB)</label>
+            <input type="file" id="attachment" name="attachment">
+          </div>
+
+          <button type="submit" class="btn-submit">Wyślij wiadomość</button>
+          <div class="form-status" id="formStatus"></div>
+
+        </form>
+      </div>
+
+      <div class="whatsapp-card">
+        <h3>Wolisz napisać od razu?</h3>
+        <p>Kliknij, żeby otworzyć WhatsApp z gotową rozmową — nie musisz nigdzie przepisywać numeru.</p>
+        <a class="btn-whatsapp" href="https://wa.me/48607603964?text=Cze%C5%9B%C4%87%2C%20mam%20pytanie%20o%20naklejki." target="_blank" rel="noopener">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12c0 1.85.5 3.58 1.36 5.07L2 22l5.1-1.34A9.94 9.94 0 0 0 12 22c5.52 0 10-4.48 10-10S17.52 2 12 2Zm0 18c-1.66 0-3.2-.48-4.5-1.32l-.32-.2-3 .79.8-2.92-.21-.3A7.94 7.94 0 0 1 4 12c0-4.41 3.59-8 8-8s8 3.59 8 8-3.59 8-8 8Zm4.4-5.9c-.24-.12-1.42-.7-1.64-.78-.22-.08-.38-.12-.54.12-.16.24-.62.78-.76.94-.14.16-.28.18-.52.06-.24-.12-1.02-.38-1.94-1.2-.72-.64-1.2-1.44-1.34-1.68-.14-.24-.02-.37.11-.49.11-.11.24-.28.36-.42.12-.14.16-.24.24-.4.08-.16.04-.3-.02-.42-.06-.12-.54-1.3-.74-1.78-.2-.47-.4-.4-.54-.41h-.46c-.16 0-.42.06-.64.3-.22.24-.84.82-.84 2s.86 2.32.98 2.48c.12.16 1.7 2.6 4.12 3.64.58.25 1.03.4 1.38.51.58.18 1.11.16 1.53.1.47-.07 1.42-.58 1.62-1.14.2-.56.2-1.04.14-1.14-.06-.1-.22-.16-.46-.28Z"/></svg>
+          Napisz na WhatsApp
+        </a>
+
+        <a class="btn-tiktok" href="https://www.tiktok.com/@v6.genny" target="_blank" rel="noopener">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="5"/><path d="M10 8.5l6 3.5-6 3.5v-7Z" fill="currentColor" stroke="none"/></svg>
+          Zobacz na TikToku
+        </a>
+      </div>
+
+    </div>
+  </section>
+
+  <footer>&copy; 2026 FormFabryka</footer>
+
+  <script>
+    (function(){
+      var form = document.getElementById('contactForm');
+      if(!form) return;
+
+      var statusEl = document.getElementById('formStatus');
+      var submitBtn = form.querySelector('.btn-submit');
+
+      form.addEventListener('submit', function(e){
+        e.preventDefault();
+
+        var honeypot = form.querySelector('[name="botcheck"]').value;
+        if(honeypot){ return; }
+
+        var fileInput = document.getElementById('attachment');
+        if(fileInput && fileInput.files.length > 0){
+          var sizeMB = fileInput.files[0].size / (1024*1024);
+          if(sizeMB > 5){
+            statusEl.textContent = 'Plik jest za duży (max 5 MB). Zmniejsz plik albo wyślij go na WhatsApp.';
+            statusEl.className = 'form-status error';
+            return;
+          }
+        }
+
+        var originalLabel = submitBtn.textContent;
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Wysyłanie...';
+        statusEl.textContent = '';
+        statusEl.className = 'form-status';
+
+        var formData = new FormData(form);
+
+        fetch('https://api.web3forms.com/submit', {
+          method:'POST',
+          headers:{ 'Accept':'application/json' },
+          body:formData
+        })
+        .then(function(res){ return res.json(); })
+        .then(function(data){
+          if(data.success){
+            statusEl.textContent = 'Dziękuję! Wiadomość została wysłana, odpowiem najszybciej jak to możliwe.';
+            statusEl.className = 'form-status success';
+            form.reset();
+          } else {
+            throw new Error(data.message || 'Błąd wysyłki');
+          }
+        })
+        .catch(function(){
+          statusEl.textContent = 'Coś poszło nie tak. Spróbuj ponownie lub napisz na WhatsApp.';
+          statusEl.className = 'form-status error';
+        })
+        .finally(function(){
+          submitBtn.disabled = false;
+          submitBtn.textContent = originalLabel;
+        });
+      });
+    })();
+  </script>
+
+
+  <script>
+    // rozwijane menu pod logo w naglowku
+    (function(){
+      var wrap = document.querySelector('.logo-wrap');
+      var trigger = document.querySelector('.logo-trigger');
+      if(!wrap || !trigger) return;
+
+      function closeMenu(){
+        wrap.classList.remove('is-open');
+        trigger.setAttribute('aria-expanded', 'false');
+      }
+
+      trigger.addEventListener('click', function(e){
+        e.stopPropagation();
+        var willOpen = !wrap.classList.contains('is-open');
+        wrap.classList.toggle('is-open', willOpen);
+        trigger.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+      });
+
+      document.addEventListener('click', function(e){
+        if(!wrap.contains(e.target)) closeMenu();
+      });
+
+      document.addEventListener('keydown', function(e){
+        if(e.key === 'Escape') closeMenu();
+      });
+    })();
+  </script>
+</body>
+</html>
