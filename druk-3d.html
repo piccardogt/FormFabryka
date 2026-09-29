@@ -1,0 +1,1099 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Druk 3D i Prototypowanie — FormFabryka</title>
+<style>
+
+  :root{
+    --bg:#050506;
+    --bg-card:#0d0e11;
+    --border-idle:rgba(255,255,255,0.08);
+    --accent:#2f8fe0;
+    --accent-soft:#5aa9e6;
+    --text:#f3f4f6;
+    --text-dim:rgba(255,255,255,0.55);
+  }
+
+  *{ box-sizing:border-box; margin:0; padding:0; }
+  html{ scroll-behavior:smooth; }
+
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    min-height:100vh;
+    overflow-x:hidden;
+    position:relative;
+  }
+
+  .bg-mesh{
+    position:fixed; inset:0; z-index:0; pointer-events:none;
+    background:
+      radial-gradient(circle at 18% 22%, rgba(47,143,224,0.16), transparent 42%),
+      radial-gradient(circle at 82% 18%, rgba(47,143,224,0.10), transparent 40%),
+      radial-gradient(circle at 75% 80%, rgba(47,143,224,0.14), transparent 45%),
+      radial-gradient(circle at 25% 85%, rgba(47,143,224,0.08), transparent 40%);
+    animation:meshDrift 16s ease-in-out infinite alternate;
+  }
+
+  @keyframes meshDrift{
+    0%{ transform:scale(1) translate(0,0); opacity:0.75; }
+    50%{ transform:scale(1.08) translate(-1%, 1%); opacity:1; }
+    100%{ transform:scale(1.03) translate(1%, -1%); opacity:0.9; }
+  }
+
+  @media (prefers-reduced-motion: reduce){ .bg-mesh{ animation:none; } }
+
+  header{
+    position:sticky;
+    top:0;
+    z-index:50;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:16px clamp(20px, 5vw, 56px);
+    background:rgba(5,5,6,0.72);
+    backdrop-filter:blur(14px);
+    -webkit-backdrop-filter:blur(14px);
+    border-bottom:1px solid rgba(255,255,255,0.06);
+  }
+
+  .logo-wrap{ position:relative; }
+
+  .logo-trigger{
+    display:flex; align-items:center; gap:10px;
+    background:none; border:none; padding:0; cursor:pointer;
+    font-family:inherit; color:var(--text);
+  }
+
+  .logo-trigger img{
+    height:34px; width:34px; object-fit:contain; border-radius:6px; display:block;
+  }
+
+  .logo-trigger span{
+    font-size:16px; font-weight:600; letter-spacing:0.2px; color:var(--text);
+  }
+
+  .logo-trigger .chevron{
+    width:14px; height:14px; color:var(--text-dim);
+    transition:transform 0.25s ease;
+  }
+
+  .logo-wrap.is-open .chevron{ transform:rotate(180deg); }
+
+  .logo-dropdown{
+    position:absolute; top:calc(100% + 14px); left:0;
+    min-width:250px;
+    background:#0d0e11; border:1px solid rgba(255,255,255,0.1); border-radius:12px;
+    padding:8px; box-shadow:0 24px 48px rgba(0,0,0,0.55);
+    opacity:0; pointer-events:none; transform:translateY(-8px);
+    transition:opacity 0.2s ease, transform 0.2s ease;
+  }
+
+  .logo-wrap.is-open .logo-dropdown{ opacity:1; pointer-events:auto; transform:translateY(0); }
+
+  .logo-dropdown a{
+    display:block; padding:10px 12px; border-radius:8px;
+    font-size:13.5px; color:var(--text-dim); text-decoration:none;
+    transition:background 0.2s ease, color 0.2s ease;
+  }
+
+  .logo-dropdown a:hover{ background:rgba(47,143,224,0.12); color:var(--text); }
+  .logo-dropdown a.is-current{ color:var(--accent-soft); font-weight:600; }
+  .logo-dropdown .dropdown-divider{ height:1px; background:rgba(255,255,255,0.08); margin:6px 4px; }
+
+  nav{ display:flex; gap:28px; }
+  nav a{ color:var(--text-dim); text-decoration:none; font-size:14px; font-weight:500; letter-spacing:0.2px; transition:color 0.25s ease; }
+  nav a:hover{ color:var(--text); }
+
+  /* ---------- hero: tekst z lewej, obraz z prawej ---------- */
+  .hero{
+    position:relative;
+    z-index:2;
+    overflow:hidden;
+    max-width:1280px;
+    margin:0 auto;
+    padding:56px clamp(20px, 5vw, 56px) 80px;
+    min-height:520px;
+    display:flex;
+    align-items:center;
+  }
+
+
+
+  .hero__bg{
+    position:absolute; inset:0; z-index:0;
+    pointer-events:none;
+    opacity:0; transform:translateX(6%) scale(1.03);
+    animation:bgSlideIn 1.2s cubic-bezier(.16,.8,.3,1) 0.1s forwards;
+  }
+
+  .hero__bg img{ width:100%; height:100%; object-fit:contain; object-position:right center; display:block; }
+
+  .hero__bg::after{
+    content:''; position:absolute; inset:0;
+    background:radial-gradient(ellipse 640px 520px at 0% 50%, rgba(5,5,6,0.95) 0%, rgba(5,5,6,0.55) 42%, transparent 70%);
+  }
+
+  @keyframes bgSlideIn{ to{ opacity:1; transform:translateX(0) scale(1); } }
+
+  @media (max-width:860px){
+    .hero__bg img{ object-position:center 20%; opacity:0.5; }
+    .hero__bg::after{
+      background:linear-gradient(to bottom, rgba(5,5,6,0.5) 0%, rgba(5,5,6,0.75) 55%, rgba(5,5,6,0.95) 100%);
+    }
+  }
+
+  .hero__text{
+    position:relative; z-index:1; max-width:560px;
+    opacity:0; transform:translateX(-36px);
+    animation:slideInLeft 0.9s cubic-bezier(.16,.8,.3,1) 0.15s forwards;
+  }
+
+  @keyframes slideInLeft{ to{ opacity:1; transform:translateX(0); } }
+
+  @media (prefers-reduced-motion: reduce){
+    .hero__text, .hero__bg{ animation:none; opacity:1; transform:none; }
+  }
+
+  .eyebrow{
+    display:inline-block; font-size:12px; letter-spacing:1.6px; font-weight:600;
+    color:var(--accent-soft); margin-bottom:18px;
+  }
+
+  .hero__text h1{ font-size:clamp(30px, 4vw, 44px); font-weight:600; line-height:1.18; margin-bottom:20px; }
+  .hero__text p{ font-size:15.5px; line-height:1.7; color:var(--text-dim); max-width:46ch; margin-bottom:20px; }
+
+  .hero__output{
+    display:flex; align-items:center; gap:10px; font-size:13px; color:var(--text);
+    background:rgba(47,143,224,0.1); border:1px solid rgba(90,169,230,0.25);
+    border-radius:8px; padding:10px 14px; margin-bottom:28px; max-width:fit-content;
+  }
+  .hero__output svg{ width:16px; height:16px; color:var(--accent-soft); flex-shrink:0; }
+
+  .trust-row{ display:flex; gap:12px; justify-content:center; flex-wrap:wrap; max-width:680px; margin:0 auto 36px; }
+  .trust-badge{
+    display:flex; align-items:center; gap:8px; font-size:12.5px; color:var(--text);
+    background:rgba(47,143,224,0.1); border:1px solid rgba(90,169,230,0.25);
+    border-radius:8px; padding:9px 14px;
+  }
+  .trust-badge svg{ width:15px; height:15px; color:var(--accent-soft); flex-shrink:0; }
+
+  .hero__cta{ display:flex; gap:12px; flex-wrap:wrap; }
+
+  .btn-primary{
+    background:var(--accent); color:#04101c; border:none; font-size:14px; font-weight:600;
+    padding:12px 24px; border-radius:8px; text-decoration:none; display:inline-flex; align-items:center;
+    transition:filter 0.25s ease, transform 0.2s ease;
+  }
+  .btn-primary:hover{ filter:brightness(1.1); transform:translateY(-1px); }
+
+  .btn-ghost{
+    background:transparent; color:var(--text); border:1px solid rgba(255,255,255,0.2);
+    font-size:14px; font-weight:500; padding:12px 22px; border-radius:8px; text-decoration:none;
+    display:inline-flex; align-items:center; transition:border-color 0.25s ease, color 0.25s ease;
+  }
+  .btn-ghost:hover{ border-color:rgba(90,169,230,0.5); color:var(--accent-soft); }
+
+  /* ---------- karty specyfikacji ---------- */
+  .section{ position:relative; z-index:2; padding:20px clamp(20px, 5vw, 56px) 72px; max-width:1180px; margin:0 auto; }
+  .section .heading{ text-align:center; max-width:560px; margin:0 auto 36px; }
+  .section .heading h2{ font-size:24px; font-weight:600; margin-bottom:10px; }
+  .section .heading p{ font-size:14px; color:var(--text-dim); line-height:1.6; }
+
+  .spec-grid{ display:grid; grid-template-columns:repeat(4, 1fr); gap:16px; }
+  @media (max-width:860px){ .spec-grid{ grid-template-columns:repeat(2, 1fr); } }
+  @media (max-width:520px){ .spec-grid{ grid-template-columns:1fr; } }
+
+  .spec-card{
+    background:var(--bg-card); border:1px solid var(--border-idle); border-radius:14px;
+    padding:24px 20px; transition:border-color 0.35s ease, transform 0.35s ease;
+  }
+  .spec-card:hover{ border-color:rgba(90,169,230,0.35); transform:translateY(-3px); }
+  .spec-card .num{ font-size:19px; font-weight:700; color:var(--accent-soft); margin-bottom:10px; }
+  .spec-card h3{ font-size:14px; font-weight:600; margin-bottom:8px; }
+  .spec-card p{ font-size:12.5px; color:var(--text-dim); line-height:1.55; }
+
+  /* ---------- baner cross-sell: dodatki ---------- */
+  .addon-grid{
+    display:grid; grid-template-columns:repeat(2, 1fr); gap:16px;
+    max-width:1180px; margin:0 auto 72px; padding:0 clamp(20px, 5vw, 56px);
+  }
+  @media (max-width:700px){ .addon-grid{ grid-template-columns:1fr; } }
+
+  .addon-card{
+    display:flex; align-items:flex-start; gap:16px;
+    background:var(--bg-card); border:1px solid var(--border-idle); border-radius:16px;
+    padding:24px; transition:border-color 0.35s ease;
+  }
+  .addon-card:hover{ border-color:rgba(90,169,230,0.3); }
+
+  .addon-card__icon{
+    width:40px; height:40px; border-radius:10px; background:rgba(47,143,224,0.15);
+    display:flex; align-items:center; justify-content:center; flex-shrink:0;
+  }
+  .addon-card__icon svg{ width:20px; height:20px; color:var(--accent-soft); }
+
+  .addon-card h3{ font-size:14.5px; font-weight:600; margin-bottom:6px; }
+  .addon-card p{ font-size:12.5px; color:var(--text-dim); line-height:1.55; margin-bottom:12px; }
+  .addon-card a{ font-size:12.5px; font-weight:600; color:var(--accent-soft); text-decoration:none; }
+  .addon-card a:hover{ text-decoration:underline; }
+
+  /* ---------- cennik ---------- */
+  .price-grid{ display:grid; grid-template-columns:repeat(4, 1fr); gap:16px; }
+  @media (max-width:960px){ .price-grid{ grid-template-columns:repeat(2, 1fr); } }
+  @media (max-width:520px){ .price-grid{ grid-template-columns:1fr; } }
+
+  .price-card{
+    background:var(--bg-card); border:1px solid var(--border-idle); border-radius:16px;
+    padding:30px 26px; display:flex; flex-direction:column;
+    transition:border-color 0.35s ease, transform 0.35s ease;
+  }
+  .price-card:hover{ border-color:rgba(90,169,230,0.35); transform:translateY(-3px); }
+  .price-card.is-featured{
+    border-color:rgba(90,169,230,0.45);
+    background:linear-gradient(180deg, rgba(47,143,224,0.08), rgba(13,14,17,1) 60%);
+  }
+  .price-card .tag{ font-size:11px; letter-spacing:1.2px; font-weight:600; color:var(--accent-soft); margin-bottom:14px; }
+  .price-card h3{ font-size:17px; font-weight:600; margin-bottom:6px; }
+  .price-card .price{ font-size:24px; font-weight:700; margin:10px 0 16px; }
+  .price-card .price span{ font-size:13px; font-weight:500; color:var(--text-dim); }
+  .price-card p{ font-size:13px; color:var(--text-dim); line-height:1.6; flex-grow:1; }
+
+  .price-note{ text-align:center; font-size:12.5px; color:var(--text-dim); margin-top:24px; line-height:1.6; }
+
+  /* ---------- kontakt ---------- */
+  .section-kontakt{ position:relative; z-index:2; padding:20px clamp(20px, 5vw, 56px) 80px; }
+  .section-kontakt .heading{ text-align:center; max-width:520px; margin:0 auto 40px; }
+  .section-kontakt .heading h2{ font-size:26px; font-weight:600; margin-bottom:10px; }
+  .section-kontakt .heading p{ font-size:14px; color:var(--text-dim); line-height:1.6; }
+
+  .contact-grid{ display:grid; grid-template-columns:1.3fr 1fr; gap:20px; max-width:960px; margin:0 auto; }
+  @media (max-width:760px){ .contact-grid{ grid-template-columns:1fr; } }
+
+  .contact-card, .whatsapp-card{
+    background:var(--bg-card); border:1px solid var(--border-idle); border-radius:16px;
+    padding:30px; transition:border-color 0.4s ease;
+  }
+  .contact-card:hover, .whatsapp-card:hover{ border-color:rgba(90,169,230,0.3); }
+
+  .field{ margin-bottom:16px; display:flex; flex-direction:column; gap:6px; }
+  .field label{ font-size:12.5px; color:var(--text-dim); }
+  .field input, .field textarea{
+    background:#0a0b0d; border:1px solid rgba(255,255,255,0.12); border-radius:8px;
+    padding:11px 14px; color:var(--text); font-size:14px; font-family:inherit; outline:none;
+    transition:border-color 0.25s ease;
+  }
+  .field input:focus, .field textarea:focus{ border-color:var(--accent); }
+  .field textarea{ resize:vertical; min-height:110px; }
+
+  .hp-field{ position:absolute; left:-9999px; width:1px; height:1px; overflow:hidden; }
+
+  .btn-submit{
+    background:var(--accent); color:#04101c; border:none; font-size:14px; font-weight:600;
+    padding:12px 24px; border-radius:8px; cursor:pointer; transition:filter 0.25s ease, transform 0.2s ease;
+  }
+  .btn-submit:hover:not(:disabled){ filter:brightness(1.1); transform:translateY(-1px); }
+  .btn-submit:disabled{ opacity:0.55; cursor:not-allowed; }
+
+  .form-status{ margin-top:14px; font-size:13px; line-height:1.5; }
+  .form-status.success{ color:#6ee7a0; }
+  .form-status.error{ color:#ff8080; }
+
+  .whatsapp-card{ display:flex; flex-direction:column; justify-content:center; gap:14px; }
+  .whatsapp-card h3{ font-size:16px; font-weight:600; }
+  .whatsapp-card p{ font-size:13px; color:var(--text-dim); line-height:1.6; }
+
+  .btn-whatsapp{
+    display:inline-flex; align-items:center; gap:10px; align-self:flex-start;
+    background:var(--accent); color:#04101c; padding:12px 20px; border-radius:8px;
+    text-decoration:none; font-size:14px; font-weight:600;
+    transition:filter 0.25s ease, transform 0.2s ease;
+  }
+  .btn-whatsapp:hover{ filter:brightness(1.1); transform:translateY(-2px); }
+  .btn-whatsapp svg{ width:18px; height:18px; }
+
+  .btn-tiktok{
+    display:inline-flex; align-items:center; gap:10px; align-self:flex-start;
+    background:transparent; color:var(--text); border:1px solid rgba(255,255,255,0.2);
+    padding:12px 20px; border-radius:8px; text-decoration:none; font-size:14px; font-weight:600;
+    margin-top:10px; transition:border-color 0.25s ease, color 0.25s ease, transform 0.2s ease;
+  }
+  .btn-tiktok:hover{ border-color:rgba(90,169,230,0.5); color:var(--accent-soft); transform:translateY(-2px); }
+  .btn-tiktok svg{ width:18px; height:18px; }
+
+  footer{ position:relative; z-index:2; text-align:center; padding:22px; font-size:12px; color:rgba(255,255,255,0.35); }
+  /* ---------- kalkulator wyceny STL ---------- */
+  .estimator-grid{
+    display:grid; grid-template-columns:1fr 1fr; gap:20px;
+    max-width:1000px; margin:0 auto;
+  }
+  @media (max-width:860px){ .estimator-grid{ grid-template-columns:1fr; } }
+
+  .estimator-card{
+    background:var(--bg-card); border:1px solid var(--border-idle);
+    border-radius:16px; padding:26px;
+  }
+
+  .dropzone{
+    border:2px dashed var(--border-idle); border-radius:14px;
+    padding:36px 18px; text-align:center; cursor:pointer;
+    transition:border-color 0.25s ease, background 0.25s ease;
+  }
+  .dropzone:hover, .dropzone.is-dragover{
+    border-color:var(--accent); background:rgba(47,143,224,0.06);
+  }
+  .dropzone svg{ width:30px; height:30px; color:var(--accent-soft); margin-bottom:10px; }
+  .dropzone-title{ font-size:14px; font-weight:600; color:var(--text); margin-bottom:4px; }
+  .dropzone-hint{ font-size:12px; color:var(--text-dim); }
+
+  .file-info{ margin-top:18px; font-size:13px; color:var(--text-dim); line-height:1.9; }
+  .file-info strong{ color:var(--text); word-break:break-all; }
+  .file-info .row{ display:flex; justify-content:space-between; gap:10px; }
+
+  .estimator-warning{
+    margin-top:14px; font-size:12px; line-height:1.6; color:#ffc266;
+    background:rgba(255,176,32,0.08); border:1px solid rgba(255,176,32,0.25);
+    border-radius:8px; padding:10px 12px;
+  }
+
+  .tech-toggle{ display:flex; gap:8px; margin-bottom:18px; }
+  .tech-btn{
+    flex:1; padding:10px; border-radius:8px; border:1px solid var(--border-idle);
+    background:transparent; color:var(--text-dim); font-size:13px; font-weight:600;
+    font-family:inherit; cursor:pointer; transition:border-color 0.2s ease, color 0.2s ease, background 0.2s ease;
+  }
+  .tech-btn.is-active{ border-color:var(--accent); color:var(--accent-soft); background:rgba(47,143,224,0.1); }
+
+  .field-select{
+    background:#0a0b0d; border:1px solid rgba(255,255,255,0.12); border-radius:8px;
+    padding:11px 14px; color:var(--text); font-size:14px; font-family:inherit;
+    outline:none; width:100%; transition:border-color 0.25s ease;
+  }
+  .field-select:focus{ border-color:var(--accent); }
+
+  .range-row{ margin-bottom:16px; }
+  .range-row label{
+    display:flex; justify-content:space-between; font-size:12.5px;
+    color:var(--text-dim); margin-bottom:8px;
+  }
+  .range-row input[type="range"]{ width:100%; accent-color:var(--accent); }
+
+  .estimate-summary{
+    border-top:1px solid var(--border-idle); border-bottom:1px solid var(--border-idle);
+    padding:14px 0; margin:18px 0; display:flex; flex-direction:column; gap:8px;
+  }
+  .estimate-summary .row{ display:flex; justify-content:space-between; font-size:13px; }
+  .estimate-summary .row span:first-child{ color:var(--text-dim); }
+  .estimate-summary .row span:last-child{ color:var(--text); font-weight:600; }
+
+  .estimate-price-label{ font-size:12px; color:var(--text-dim); margin-bottom:2px; }
+  .estimate-price{ font-size:28px; font-weight:700; color:var(--accent-soft); }
+
+  #sendEstimateBtn{
+    width:100%; justify-content:center; margin-top:16px;
+    opacity:0.45; pointer-events:none; transition:opacity 0.2s ease;
+  }
+  #sendEstimateBtn.is-ready{ opacity:1; pointer-events:auto; }
+
+  .estimator-note{ font-size:11.5px; color:var(--text-dim); margin-top:16px; line-height:1.6; }
+
+  /* ---------- listy, uproszczony cennik, siatka 2-kolumnowa ---------- */
+  .list-card{
+    background:var(--bg-card); border:1px solid var(--border-idle); border-radius:16px;
+    padding:30px 34px; max-width:900px; margin:0 auto 20px;
+  }
+  .list-card .list-lead{ font-size:14px; font-weight:600; color:var(--text); margin-bottom:16px; }
+  .list-card ul{
+    list-style:none; display:grid; grid-template-columns:repeat(2,1fr);
+    gap:11px 28px; margin:0; padding:0;
+  }
+  @media (max-width:640px){ .list-card ul{ grid-template-columns:1fr; } }
+  .list-card li{
+    font-size:13.5px; color:var(--text-dim); line-height:1.6;
+    display:flex; align-items:flex-start; gap:9px;
+  }
+  .list-card li::before{
+    content:''; width:5px; height:5px; border-radius:50%;
+    background:var(--accent-soft); margin-top:7px; flex-shrink:0;
+  }
+
+  .spec-grid--2{ grid-template-columns:repeat(2, 1fr); max-width:900px; margin:0 auto; }
+  @media (max-width:700px){ .spec-grid--2{ grid-template-columns:1fr; } }
+
+  .rate-list{
+    max-width:520px; margin:0 auto 24px; background:var(--bg-card);
+    border:1px solid var(--border-idle); border-radius:16px; padding:8px 28px;
+  }
+  .rate-row{ display:flex; justify-content:space-between; align-items:center; gap:16px; padding:16px 0; font-size:14px; }
+  .rate-row:not(:last-child){ border-bottom:1px solid var(--border-idle); }
+  .rate-row span:first-child{ color:var(--text-dim); }
+  .rate-row span:last-child{ color:var(--accent-soft); font-weight:700; font-size:15px; white-space:nowrap; }
+
+</style>
+</head>
+<body>
+
+  <div class="bg-mesh"></div>
+
+  <header>
+    <div class="logo-wrap">
+      <button class="logo-trigger" type="button" aria-haspopup="true" aria-expanded="false">
+        <img src="assets/logo.png" alt="FormFabryka logo">
+        <span>FormFabryka</span>
+        <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+      </button>
+      <div class="logo-dropdown" role="menu">
+        <a href="index.html" role="menuitem">Strona główna</a>
+        <div class="dropdown-divider"></div>
+        <a href="skan-3d.html" role="menuitem">Skanowanie 3D</a>
+        <a href="druk-3d.html" role="menuitem" class="is-current">Druk 3D i Prototypowanie</a>
+        <a href="laser.html" role="menuitem">Grawerowanie i Cięcie Laserowe</a>
+        <a href="naklejki.html" role="menuitem">Cięcie Ploterowe</a>
+      </div>
+    </div>
+    <nav>
+      <a href="#kontakt">Kontakt</a>
+    </nav>
+  </header>
+
+  <section class="hero">
+    <div class="hero__bg">
+      <img src="assets/druk.png" alt="Gotowe elementy wydrukowane w 3D — mechaniczny wspornik i figurka">
+    </div>
+    <div class="hero__text">
+      <span class="eyebrow">02 — DRUK 3D I PROTOTYPOWANIE</span>
+      <h1>Od pojedynczej części do krótkiej serii</h1>
+      <p>Drukuję elementy użytkowe, prototypy, obudowy, uchwyty, części zamienne i modele wymagające wysokiej szczegółowości. W zależności od zastosowania wykorzystuję druk FDM lub SLA. Technologię i materiał dobieram do tego, co dana część ma robić — nie tylko do jej wyglądu.</p>
+      <div class="hero__output">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="10"/></svg>
+        Masz już plik STL ze skanu? Drukuję z niego od ręki
+      </div>
+      <div class="hero__cta">
+        <a class="btn-primary" href="#wycena">Wyceń swój wydruk</a>
+        <a class="btn-ghost" href="#cennik">Zobacz cennik</a>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="wycena">
+    <div class="heading">
+      <h2>Wyceń swój model</h2>
+      <p>Wgraj plik STL, wybierz technologię i materiał — cena liczy się sama na podstawie objętości modelu. To orientacyjny szacunek, ostateczną wycenę potwierdzam po analizie pliku.</p>
+    </div>
+
+    <div class="estimator-grid">
+
+      <div class="estimator-card">
+        <div id="dropzone" class="dropzone" tabindex="0" role="button" aria-label="Wgraj plik STL">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 16V4M12 4l-4 4M12 4l4 4"/><path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg>
+          <div class="dropzone-title">Przeciągnij plik STL tutaj</div>
+          <div class="dropzone-hint">albo kliknij, żeby wybrać z komputera — .stl, max 60 MB</div>
+          <input type="file" id="stlInput" accept=".stl" style="display:none">
+        </div>
+
+        <div id="fileInfo" class="file-info" style="display:none">
+          <div><strong id="fileNameOut"></strong></div>
+          <div class="row"><span>Wymiary (X × Y × Z)</span><span id="dimsOut">–</span></div>
+          <div class="row"><span>Objętość modelu</span><span id="volOut">–</span></div>
+        </div>
+
+        <div id="buildWarning" class="estimator-warning" style="display:none"></div>
+      </div>
+
+      <div class="estimator-card">
+        <div class="tech-toggle">
+          <button type="button" class="tech-btn is-active" data-tech="fdm">Druk FDM</button>
+          <button type="button" class="tech-btn" data-tech="sla">Druk SLA</button>
+        </div>
+
+        <div class="field">
+          <label for="materialSelect">Materiał</label>
+          <select id="materialSelect" class="field-select"></select>
+        </div>
+
+        <div class="range-row" id="infillRow">
+          <label><span>Wypełnienie</span><span id="infillVal">20%</span></label>
+          <input type="range" id="infillRange" min="5" max="100" value="20" step="5">
+        </div>
+
+        <div class="field">
+          <label for="qtyInput">Ilość sztuk</label>
+          <input type="number" id="qtyInput" class="field-select" min="1" value="1" style="width:100%;">
+        </div>
+
+        <div class="estimate-summary">
+          <div class="row"><span>Szacowana waga / ilość</span><span id="weightOut">–</span></div>
+          <div class="row"><span>Cena za sztukę</span><span id="unitPriceOut">–</span></div>
+        </div>
+
+        <div class="estimate-price-label">Szacunkowa cena za zamówienie</div>
+        <div class="estimate-price" id="priceOut">wgraj model</div>
+
+        <a href="#kontakt" class="btn-primary" id="sendEstimateBtn">Wyślij wycenę i model</a>
+
+        <p class="estimator-note">Szacunek na podstawie objętości bryły ze zgłoszonego pliku STL — zakłada w miarę szczelną siatkę, nie uwzględnia podpór ani złożoności kształtu. Obowiązuje minimalna wartość zamówienia: 29 zł (FDM) i 35 zł (SLA).</p>
+      </div>
+
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="heading">
+      <h2>FDM — części użytkowe i większe elementy</h2>
+      <p>Druk FDM sprawdza się szczególnie dobrze przy większych częściach oraz elementach, które muszą być odporne na codzienne użytkowanie.</p>
+    </div>
+    <div class="spec-grid spec-grid--2">
+
+      <div class="spec-card">
+        <div class="num">PLA • PETG • ABS • ASA • PC • nylon</div>
+        <h3>Dostępne materiały</h3>
+        <p>Dobór materiału zależy od wymaganej wytrzymałości, temperatury pracy, elastyczności oraz warunków, w których część będzie używana.</p>
+      </div>
+
+      <div class="spec-card">
+        <div class="num">Duży obszar roboczy</div>
+        <h3>Większe elementy w całości</h3>
+        <p>Możliwość wykonywania większych elementów pozwala drukować części, których nie trzeba dzielić na kilka mniejszych fragmentów.</p>
+      </div>
+
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="heading">
+      <h2>SLA — małe i szczegółowe elementy</h2>
+      <p>Druk żywiczny wykorzystuję tam, gdzie ważne są drobne detale, gładka powierzchnia i dokładne odwzorowanie kształtu.</p>
+    </div>
+
+    <div class="list-card">
+      <div class="list-lead">Sprawdza się szczególnie przy:</div>
+      <ul>
+        <li>figurkach</li>
+        <li>modelach</li>
+        <li>elementach dekoracyjnych</li>
+        <li>małych częściach</li>
+        <li>prototypach</li>
+        <li>detalach z drobnymi napisami i strukturami</li>
+      </ul>
+    </div>
+
+    <div class="spec-grid spec-grid--2">
+
+      <div class="spec-card">
+        <div class="num">XY do 18 µm</div>
+        <h3>Drobne detale</h3>
+        <p>Rozdzielczość XY sięgająca 18 µm pozwala odwzorować bardzo małe szczegóły. Wysokość warstwy dobieram do konkretnego modelu — od szybszego wydruku po ustawienia nastawione na możliwie gładką powierzchnię.</p>
+      </div>
+
+      <div class="spec-card">
+        <div class="num">Dwie technologie, jeden cel</div>
+        <h3>FDM czy SLA?</h3>
+        <p>Nie każdy model powinien być drukowany w tej samej technologii. FDM wybieram przede wszystkim do większych i funkcjonalnych elementów, SLA do małych części, figurek i modeli, w których liczy się szczegółowość powierzchni. Jeżeli nie wiesz, którą technologię wybrać, podeślij model lub opisz zastosowanie — dobiorę odpowiednie rozwiązanie.</p>
+      </div>
+
+    </div>
+  </section>
+
+  <div class="addon-grid">
+
+    <div class="addon-card">
+      <div class="addon-card__icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2 2 7l10 5 10-5-10-5Z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+      </div>
+      <div>
+        <h3>Grawer ozdobny na wydruku</h3>
+        <p>Logo, personalizowany napis albo wzór wypalony bezpośrednio na gotowej części — świetnie wygląda na obudowach i prezentach.</p>
+        <a href="laser.html">Zobacz grawer →</a>
+      </div>
+    </div>
+
+    <div class="addon-card">
+      <div class="addon-card__icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 3h10l4 6-9 12L3 9l4-6Z"/><path d="M3 9h18M12 3v18"/></svg>
+      </div>
+      <div>
+        <h3>Naklejki z folii</h3>
+        <p>Wycięta po obrysie naklejka lub oznaczenie dopasowane do Twojego produktu albo marki.</p>
+        <a href="naklejki.html">Zobacz cięcie ploterowe →</a>
+      </div>
+    </div>
+
+  </div>
+
+  <section class="section" id="cennik">
+    <div class="heading">
+      <h2>Orientacyjny cennik</h2>
+    </div>
+
+    <div class="trust-row">
+      <div class="trust-badge">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+        Realizacja standardowo w 24–48h
+      </div>
+    </div>
+
+    <div class="rate-list">
+      <div class="rate-row"><span>FDM</span><span>od 0,15 zł/g</span></div>
+      <div class="rate-row"><span>FDM — materiały techniczne</span><span>od 0,25 zł/g</span></div>
+      <div class="rate-row"><span>SLA — standardowa</span><span>od 0,80 zł/ml</span></div>
+      <div class="rate-row"><span>SLA — ABS-like (wytrzymała)</span><span>od 1,00 zł/ml</span></div>
+      <div class="rate-row"><span>SLA — przeźroczysta</span><span>od 1,50 zł/ml</span></div>
+    </div>
+
+    <p class="price-note"><strong>Przykład:</strong> mała, szczegółowa figurka o wysokości około 5 cm to zazwyczaj 70–90 zł, zależnie od modelu, ustawienia i ilości materiału.</p>
+    <p class="price-note">Cena końcowa zależy od konkretnego pliku, materiału, czasu pracy oraz obróbki.</p>
+  </section>
+
+  <section class="section-kontakt" id="kontakt">
+    <div class="heading">
+      <h2>Masz model do wydruku?</h2>
+      <p>Wyślij plik STL, 3MF, OBJ lub inny dostępny format. Jeśli model wymaga przygotowania do druku albo drobnych zmian, ustalę to z Tobą przed realizacją.</p>
+    </div>
+
+    <div class="contact-grid">
+
+      <div class="contact-card">
+        <form id="contactForm" action="https://api.web3forms.com/submit" method="POST" enctype="multipart/form-data">
+
+          <input type="hidden" name="access_key" value="c7c666aa-6ef7-4205-99af-e8313982ca59">
+          <input type="hidden" name="subject" value="Nowa wiadomość ze strony FormFabryka — Druk 3D">
+          <input type="hidden" name="from_name" value="Formularz FormFabryka">
+
+          <div class="hp-field">
+            <label for="botcheck">Nie wypełniaj tego pola</label>
+            <input type="text" id="botcheck" name="botcheck" tabindex="-1" autocomplete="off">
+          </div>
+
+          <div class="field">
+            <label for="name">Imię i nazwisko</label>
+            <input type="text" id="name" name="name" required>
+          </div>
+
+          <div class="field">
+            <label for="email">Twój e-mail</label>
+            <input type="email" id="email" name="email" required>
+          </div>
+
+          <div class="field">
+            <label for="message">Wiadomość</label>
+            <textarea id="message" name="message" placeholder="Opisz co chcesz wydrukować — rozmiar, materiał, plik STL (jeśli masz), ewentualny grawer lub naklejkę."></textarea>
+          </div>
+
+          <div class="field">
+            <label for="attachment">Plik lub zdjęcie (opcjonalnie, max 5 MB)</label>
+            <input type="file" id="attachment" name="attachment">
+          </div>
+
+          <button type="submit" class="btn-submit">Wyślij wiadomość</button>
+          <div class="form-status" id="formStatus"></div>
+
+        </form>
+      </div>
+
+      <div class="whatsapp-card">
+        <h3>Wolisz napisać od razu?</h3>
+        <p>Kliknij, żeby otworzyć WhatsApp z gotową rozmową — nie musisz nigdzie przepisywać numeru.</p>
+        <a class="btn-whatsapp" href="https://wa.me/48607603964?text=Cze%C5%9B%C4%87%2C%20mam%20pytanie%20o%20druk%203D." target="_blank" rel="noopener">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12c0 1.85.5 3.58 1.36 5.07L2 22l5.1-1.34A9.94 9.94 0 0 0 12 22c5.52 0 10-4.48 10-10S17.52 2 12 2Zm0 18c-1.66 0-3.2-.48-4.5-1.32l-.32-.2-3 .79.8-2.92-.21-.3A7.94 7.94 0 0 1 4 12c0-4.41 3.59-8 8-8s8 3.59 8 8-3.59 8-8 8Zm4.4-5.9c-.24-.12-1.42-.7-1.64-.78-.22-.08-.38-.12-.54.12-.16.24-.62.78-.76.94-.14.16-.28.18-.52.06-.24-.12-1.02-.38-1.94-1.2-.72-.64-1.2-1.44-1.34-1.68-.14-.24-.02-.37.11-.49.11-.11.24-.28.36-.42.12-.14.16-.24.24-.4.08-.16.04-.3-.02-.42-.06-.12-.54-1.3-.74-1.78-.2-.47-.4-.4-.54-.41h-.46c-.16 0-.42.06-.64.3-.22.24-.84.82-.84 2s.86 2.32.98 2.48c.12.16 1.7 2.6 4.12 3.64.58.25 1.03.4 1.38.51.58.18 1.11.16 1.53.1.47-.07 1.42-.58 1.62-1.14.2-.56.2-1.04.14-1.14-.06-.1-.22-.16-.46-.28Z"/></svg>
+          Napisz na WhatsApp
+        </a>
+
+        <a class="btn-tiktok" href="https://www.tiktok.com/@v6.genny" target="_blank" rel="noopener">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="5"/><path d="M10 8.5l6 3.5-6 3.5v-7Z" fill="currentColor" stroke="none"/></svg>
+          Zobacz na TikToku
+        </a>
+      </div>
+
+    </div>
+  </section>
+
+  <footer>&copy; 2026 FormFabryka</footer>
+
+  <script>
+    (function(){
+      var form = document.getElementById('contactForm');
+      if(!form) return;
+
+      var statusEl = document.getElementById('formStatus');
+      var submitBtn = form.querySelector('.btn-submit');
+
+      form.addEventListener('submit', function(e){
+        e.preventDefault();
+
+        var honeypot = form.querySelector('[name="botcheck"]').value;
+        if(honeypot){ return; }
+
+        var fileInput = document.getElementById('attachment');
+        if(fileInput && fileInput.files.length > 0){
+          var sizeMB = fileInput.files[0].size / (1024*1024);
+          if(sizeMB > 5){
+            statusEl.textContent = 'Plik jest za duży (max 5 MB). Zmniejsz plik albo wyślij go na WhatsApp.';
+            statusEl.className = 'form-status error';
+            return;
+          }
+        }
+
+        var originalLabel = submitBtn.textContent;
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Wysyłanie...';
+        statusEl.textContent = '';
+        statusEl.className = 'form-status';
+
+        var formData = new FormData(form);
+
+        fetch('https://api.web3forms.com/submit', {
+          method:'POST',
+          headers:{ 'Accept':'application/json' },
+          body:formData
+        })
+        .then(function(res){ return res.json(); })
+        .then(function(data){
+          if(data.success){
+            statusEl.textContent = 'Dziękuję! Wiadomość została wysłana, odpowiem najszybciej jak to możliwe.';
+            statusEl.className = 'form-status success';
+            form.reset();
+          } else {
+            throw new Error(data.message || 'Błąd wysyłki');
+          }
+        })
+        .catch(function(){
+          statusEl.textContent = 'Coś poszło nie tak. Spróbuj ponownie lub napisz na WhatsApp.';
+          statusEl.className = 'form-status error';
+        })
+        .finally(function(){
+          submitBtn.disabled = false;
+          submitBtn.textContent = originalLabel;
+        });
+      });
+    })();
+  </script>
+
+
+  <script>
+    // rozwijane menu pod logo w naglowku
+    (function(){
+      var wrap = document.querySelector('.logo-wrap');
+      var trigger = document.querySelector('.logo-trigger');
+      if(!wrap || !trigger) return;
+
+      function closeMenu(){
+        wrap.classList.remove('is-open');
+        trigger.setAttribute('aria-expanded', 'false');
+      }
+
+      trigger.addEventListener('click', function(e){
+        e.stopPropagation();
+        var willOpen = !wrap.classList.contains('is-open');
+        wrap.classList.toggle('is-open', willOpen);
+        trigger.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+      });
+
+      document.addEventListener('click', function(e){
+        if(!wrap.contains(e.target)) closeMenu();
+      });
+
+      document.addEventListener('keydown', function(e){
+        if(e.key === 'Escape') closeMenu();
+      });
+    })();
+  </script>
+
+  <script>
+    // ---------- kalkulator wyceny STL: wlasny parser, bez zewnetrznych bibliotek ----------
+    (function(){
+      var dropzone = document.getElementById('dropzone');
+      var stlInput = document.getElementById('stlInput');
+      var fileInfo = document.getElementById('fileInfo');
+      var fileNameOut = document.getElementById('fileNameOut');
+      var dimsOut = document.getElementById('dimsOut');
+      var volOut = document.getElementById('volOut');
+      var buildWarning = document.getElementById('buildWarning');
+      var techBtns = document.querySelectorAll('.tech-btn');
+      var materialSelect = document.getElementById('materialSelect');
+      var infillRow = document.getElementById('infillRow');
+      var infillRange = document.getElementById('infillRange');
+      var infillVal = document.getElementById('infillVal');
+      var qtyInput = document.getElementById('qtyInput');
+      var weightOut = document.getElementById('weightOut');
+      var unitPriceOut = document.getElementById('unitPriceOut');
+      var priceOut = document.getElementById('priceOut');
+      var sendBtn = document.getElementById('sendEstimateBtn');
+
+      if(!dropzone) return; // ta sekcja istnieje tylko na stronie Druk 3D
+
+      // ---- stawki zgodne z cennikiem na stronie (aktualizuj w obu miejscach!) ----
+      var TECH = {
+        fdm: {
+          buildVolume: {x:350, y:320, z:325},
+          materials: [
+            {value:'pla-petg', label:'PLA / PETG', rate:0.15, density:1.24, unit:'g'},
+            {value:'techniczne', label:'ABS / ASA / PC / Nylon', rate:0.25, density:1.10, unit:'g'}
+          ],
+          minOrder: 29,
+          showInfill: true
+        },
+        sla: {
+          buildVolume: {x:300, y:164, z:298},
+          materials: [
+            {value:'standard', label:'Standardowa', rate:0.80, density:1.10, unit:'ml'},
+            {value:'abs', label:'ABS-like (wytrzymała)', rate:1.00, density:1.10, unit:'ml'},
+            {value:'clear', label:'Przeźroczysta', rate:1.50, density:1.10, unit:'ml'}
+          ],
+          minOrder: 35,
+          showInfill: false
+        }
+      };
+
+      var currentTech = 'fdm';
+      var currentModel = null;   // {volumeMm3, bbox:{x,y,z}}
+      var currentFile = null;
+
+      // ---------- parser STL (binarny + ASCII) ----------
+      function signedTetraVolume(p1,p2,p3){
+        return (p1[0]*(p2[1]*p3[2]-p2[2]*p3[1]) - p1[1]*(p2[0]*p3[2]-p2[2]*p3[0]) + p1[2]*(p2[0]*p3[1]-p2[1]*p3[0])) / 6.0;
+      }
+
+      function isBinarySTL(buffer){
+        if(buffer.byteLength < 84) return true;
+        var head = new Uint8Array(buffer, 0, Math.min(5, buffer.byteLength));
+        var headText = '';
+        for(var i=0;i<head.length;i++) headText += String.fromCharCode(head[i]);
+        if(headText !== 'solid') return true;
+        var dv = new DataView(buffer);
+        var triCount = dv.getUint32(80, true);
+        var expected = 84 + triCount * 50;
+        return expected === buffer.byteLength;
+      }
+
+      function parseBinarySTL(buffer){
+        var dv = new DataView(buffer);
+        var triCount = dv.getUint32(80, true);
+        var offset = 84;
+        var volume = 0;
+        var min = [Infinity,Infinity,Infinity], max = [-Infinity,-Infinity,-Infinity];
+        for(var i=0; i<triCount; i++){
+          offset += 12; // normal
+          var verts = [];
+          for(var j=0; j<3; j++){
+            var x = dv.getFloat32(offset, true); offset += 4;
+            var y = dv.getFloat32(offset, true); offset += 4;
+            var z = dv.getFloat32(offset, true); offset += 4;
+            verts.push([x,y,z]);
+            if(x<min[0]) min[0]=x; if(x>max[0]) max[0]=x;
+            if(y<min[1]) min[1]=y; if(y>max[1]) max[1]=y;
+            if(z<min[2]) min[2]=z; if(z>max[2]) max[2]=z;
+          }
+          offset += 2; // attribute byte count
+          volume += signedTetraVolume(verts[0], verts[1], verts[2]);
+        }
+        return { volumeMm3: Math.abs(volume), bbox: {x:max[0]-min[0], y:max[1]-min[1], z:max[2]-min[2]} };
+      }
+
+      function parseAsciiSTL(text){
+        var vertexRe = /vertex\s+([-\d.eE+]+)\s+([-\d.eE+]+)\s+([-\d.eE+]+)/g;
+        var m, verts = [];
+        while((m = vertexRe.exec(text))){
+          verts.push([parseFloat(m[1]), parseFloat(m[2]), parseFloat(m[3])]);
+        }
+        var min = [Infinity,Infinity,Infinity], max = [-Infinity,-Infinity,-Infinity];
+        for(var i=0;i<verts.length;i++){
+          var v = verts[i];
+          if(v[0]<min[0]) min[0]=v[0]; if(v[0]>max[0]) max[0]=v[0];
+          if(v[1]<min[1]) min[1]=v[1]; if(v[1]>max[1]) max[1]=v[1];
+          if(v[2]<min[2]) min[2]=v[2]; if(v[2]>max[2]) max[2]=v[2];
+        }
+        var volume = 0;
+        for(var i=0; i+2<verts.length; i+=3){
+          volume += signedTetraVolume(verts[i], verts[i+1], verts[i+2]);
+        }
+        return { volumeMm3: Math.abs(volume), bbox: {x:max[0]-min[0], y:max[1]-min[1], z:max[2]-min[2]} };
+      }
+
+      function parseSTL(buffer){
+        if(isBinarySTL(buffer)){
+          return parseBinarySTL(buffer);
+        }
+        return parseAsciiSTL(new TextDecoder().decode(buffer));
+      }
+
+      // ---------- obsluga pliku ----------
+      function handleFile(file){
+        if(!file) return;
+        if(!/\.stl$/i.test(file.name)){
+          alert('Obsługiwane są tylko pliki .stl');
+          return;
+        }
+        currentFile = file;
+        var reader = new FileReader();
+        reader.onload = function(e){
+          var result;
+          try{
+            result = parseSTL(e.target.result);
+            if(!result.volumeMm3 || result.volumeMm3 < 1){ throw new Error('pusty model'); }
+          }catch(err){
+            alert('Nie udało się odczytać tego pliku STL. Upewnij się, że plik nie jest uszkodzony.');
+            return;
+          }
+          currentModel = result;
+          fileNameOut.textContent = file.name;
+          var dims = result.bbox;
+          dimsOut.textContent = Math.round(dims.x) + ' × ' + Math.round(dims.y) + ' × ' + Math.round(dims.z) + ' mm';
+          volOut.textContent = (result.volumeMm3/1000).toLocaleString('pl-PL', {maximumFractionDigits:1}) + ' cm³';
+          fileInfo.style.display = 'block';
+          checkBuildVolume();
+          recalc();
+        };
+        reader.readAsArrayBuffer(file);
+      }
+
+      function checkBuildVolume(){
+        if(!currentModel){ buildWarning.style.display = 'none'; return; }
+        var bv = TECH[currentTech].buildVolume;
+        var dims = [currentModel.bbox.x, currentModel.bbox.y, currentModel.bbox.z].sort(function(a,b){return b-a;});
+        var limits = [bv.x, bv.y, bv.z].sort(function(a,b){return b-a;});
+        var exceeds = dims[0] > limits[0] || dims[1] > limits[1] || dims[2] > limits[2];
+        if(exceeds){
+          buildWarning.textContent = 'Gabaryt modelu może przekraczać pole robocze wybranej technologii (' + bv.x + '×' + bv.y + '×' + bv.z + ' mm). Możliwe, że model będzie wymagał innego ułożenia albo podziału na części — sprawdzę to przy wycenie.';
+          buildWarning.style.display = 'block';
+        } else {
+          buildWarning.style.display = 'none';
+        }
+      }
+
+      // ---------- UI: technologia ----------
+      function populateMaterials(){
+        var mats = TECH[currentTech].materials;
+        materialSelect.innerHTML = '';
+        mats.forEach(function(m){
+          var opt = document.createElement('option');
+          opt.value = m.value;
+          opt.textContent = m.label;
+          materialSelect.appendChild(opt);
+        });
+        infillRow.style.display = TECH[currentTech].showInfill ? 'block' : 'none';
+      }
+
+      techBtns.forEach(function(btn){
+        btn.addEventListener('click', function(){
+          techBtns.forEach(function(b){ b.classList.remove('is-active'); });
+          btn.classList.add('is-active');
+          currentTech = btn.getAttribute('data-tech');
+          populateMaterials();
+          checkBuildVolume();
+          recalc();
+        });
+      });
+
+      populateMaterials(); // wypelnij liste materialow od razu (wczesniej pojawiala sie dopiero po przelaczeniu FDM/SLA)
+
+      materialSelect.addEventListener('change', recalc);
+      qtyInput.addEventListener('input', recalc);
+      infillRange.addEventListener('input', function(){
+        infillVal.textContent = infillRange.value + '%';
+        recalc();
+      });
+
+      // ---------- przeliczenie ceny ----------
+      function currentMaterial(){
+        var mats = TECH[currentTech].materials;
+        var found = mats.filter(function(m){ return m.value === materialSelect.value; })[0];
+        return found || mats[0];
+      }
+
+      function recalc(){
+        if(!currentModel){
+          weightOut.textContent = '–';
+          unitPriceOut.textContent = '–';
+          priceOut.textContent = 'wgraj model';
+          sendBtn.classList.remove('is-ready');
+          return;
+        }
+
+        var mat = currentMaterial();
+        var volumeCm3 = currentModel.volumeMm3 / 1000;
+        var qty = Math.max(1, parseInt(qtyInput.value, 10) || 1);
+
+        var amount, amountLabel;
+        if(TECH[currentTech].showInfill){
+          var infillFrac = parseInt(infillRange.value, 10) / 100;
+          var effectiveFraction = infillFrac + (1 - infillFrac) * 0.2; // przyblizenie: infill + naddatek na scianki/dna
+          amount = volumeCm3 * mat.density * effectiveFraction;
+          amountLabel = amount.toLocaleString('pl-PL', {maximumFractionDigits:1}) + ' g / szt.';
+        } else {
+          amount = volumeCm3; // dla SLA: zuzycie zywicy w ml ~ objetosc modelu
+          amountLabel = amount.toLocaleString('pl-PL', {maximumFractionDigits:1}) + ' ml / szt.';
+        }
+
+        var unitPrice = amount * mat.rate;
+        var totalPrice = Math.max(unitPrice * qty, TECH[currentTech].minOrder);
+
+        weightOut.textContent = amountLabel;
+        unitPriceOut.textContent = unitPrice.toLocaleString('pl-PL', {maximumFractionDigits:2}) + ' zł';
+        priceOut.textContent = totalPrice.toLocaleString('pl-PL', {maximumFractionDigits:2}) + ' zł';
+
+        sendBtn.classList.add('is-ready');
+      }
+
+      // ---------- dropzone: klik / drag&drop ----------
+      dropzone.addEventListener('click', function(){ stlInput.click(); });
+      dropzone.addEventListener('keydown', function(e){
+        if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); stlInput.click(); }
+      });
+      stlInput.addEventListener('change', function(){
+        if(stlInput.files && stlInput.files[0]) handleFile(stlInput.files[0]);
+      });
+      ['dragenter','dragover'].forEach(function(evt){
+        dropzone.addEventListener(evt, function(e){
+          e.preventDefault(); e.stopPropagation();
+          dropzone.classList.add('is-dragover');
+        });
+      });
+      ['dragleave','drop'].forEach(function(evt){
+        dropzone.addEventListener(evt, function(e){
+          e.preventDefault(); e.stopPropagation();
+          dropzone.classList.remove('is-dragover');
+        });
+      });
+      dropzone.addEventListener('drop', function(e){
+        var file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+        if(file) handleFile(file);
+      });
+
+      // ---------- wyslij wycene: dopisz podsumowanie do wiadomosci + dolacz plik jesli sie da ----------
+      sendBtn.addEventListener('click', function(){
+        if(!currentModel) return;
+
+        var messageEl = document.getElementById('message');
+        if(messageEl){
+          var techLabel = currentTech === 'fdm' ? 'FDM' : 'SLA';
+          var mat = currentMaterial();
+          var summary = 'Wycena z kalkulatora: ' + (currentFile ? currentFile.name : 'model STL') +
+            ' | technologia: ' + techLabel +
+            ' | materiał: ' + mat.label +
+            (TECH[currentTech].showInfill ? ' | wypełnienie: ' + infillRange.value + '%' : '') +
+            ' | ilość: ' + (qtyInput.value || 1) + ' szt.' +
+            ' | szacunkowa cena: ' + priceOut.textContent + '\n\n';
+          if(messageEl.value.indexOf('Wycena z kalkulatora:') === -1){
+            messageEl.value = summary + messageEl.value;
+          }
+        }
+
+        var attachInput = document.getElementById('attachment');
+        if(attachInput && currentFile){
+          if(currentFile.size <= 5*1024*1024){
+            try{
+              var dt = new DataTransfer();
+              dt.items.add(currentFile);
+              attachInput.files = dt.files;
+            }catch(err){ /* przegladarka nie wspiera - trudno, plik trzeba dolaczyc recznie */ }
+          }
+        }
+        // dalej dziala zwykly link #kontakt - przewinie do formularza
+      });
+    })();
+  </script>
+</body>
+</html>
